@@ -1,9 +1,10 @@
 package usermicroservice.controller;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,57 +13,82 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 import usermicroservice.dao.UserDAO;
 import usermicroservice.domains.User;
 
-
 @RestController
 @CrossOrigin
 public class HomeController {
-	
+
 	@Autowired
 	UserDAO userDAO;
-	
+
 	@RequestMapping("/users")
 	public List<User> getUsers() {
 		return userDAO.findAll();
 	}
+
 	@RequestMapping("/users/{id}")
-	public User getUserByID(@PathVariable long id) {
+	public ResponseEntity<User> getUserByID(@PathVariable long id) {
 		User user = userDAO.findByUserID(id);
-		return user;
+		ResponseEntity<User> response;
+		if (user == null) {
+			response = new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		} else {
+			response = new ResponseEntity<>(user, HttpStatus.OK);
+		}
+		return response;
 	}
+
 	@RequestMapping("/users/find/{email}")
-	public User getUserByEmail(@PathVariable String email) {
+	public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
 		User user = userDAO.findByEmail(email);
-		return user;
+		ResponseEntity<User> response;
+		if (user == null) {
+			response = new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		} else {
+			response = new ResponseEntity<>(user, HttpStatus.OK);
+		}
+		return response;
 	}
-	@RequestMapping(method = RequestMethod.POST, value="/users/find")
-	public User getUserByEmailAndPassword (@RequestBody String jsonString) {
+
+	@RequestMapping(method = RequestMethod.POST, value = "/users/find")
+	public ResponseEntity<User> getUserByEmailAndPassword(@RequestBody String jsonString) {
 		JsonObject jobj = new Gson().fromJson(jsonString, JsonObject.class);
 		String email = jobj.get("email").getAsString();
 		String password = jobj.get("password").getAsString();
-		return userDAO.findByEmailAndPassword(email, password);
+		User user = userDAO.findByEmailAndPassword(email, password);
+		ResponseEntity<User> response;
+		if (user == null) {
+			response = new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		} else {
+			response = new ResponseEntity<>(user, HttpStatus.OK);
+		}
+		return response;
 	}
-	
-	@RequestMapping(method = RequestMethod.POST, value="/users")
-	public User saveUser (@RequestBody @Validated User user) {
-		return userDAO.save(user);
+
+	@RequestMapping(method = RequestMethod.POST, value = "/users")
+	public ResponseEntity<User> saveUser(@RequestBody User user) {
+		ResponseEntity<User> response;
+		User savedUser = userDAO.save(user);
+		response = new ResponseEntity<>(savedUser, HttpStatus.CREATED);
+		return response;
 	}
-	
-	@RequestMapping(method = RequestMethod.DELETE, value="/users/{id}")
-	public void deleteUser (@PathVariable Long id) {
+
+	@RequestMapping(method = RequestMethod.DELETE, value = "/users/{id}")
+	public void deleteUser(@PathVariable Long id) {
 		userDAO.deleteById(id);
 	}
-	
-	@RequestMapping(method = RequestMethod.PUT, value="/users/{id}")
-	public User updateUser (@PathVariable Long id, @RequestBody @Validated User user) {		
+
+	@RequestMapping(method = RequestMethod.PUT, value = "/users/{id}")
+	public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody @Validated User user) {
 		User userDB = userDAO.findById(id).orElse(null);
-		if (user != null) {
+		ResponseEntity<User> response;
+
+		if (userDB != null) {
 			if (user.getName() != null) {
 				userDB.setName(user.getName());
 			}
@@ -70,9 +96,9 @@ public class HomeController {
 				userDB.setSurname(user.getSurname());
 			}
 			if (user.getAdmin() == 0) {
-				userDB.setAdmin((byte)0);
+				userDB.setAdmin((byte) 0);
 			} else {
-				userDB.setAdmin((byte)1);
+				userDB.setAdmin((byte) 1);
 			}
 			if (user.getBookings() != null) {
 				userDB.setBookings(user.getBookings());
@@ -92,8 +118,10 @@ public class HomeController {
 			if (user.getPassword() != null) {
 				userDB.setPassword(user.getPassword());
 			}
-			return userDAO.save(user);
+			response = new ResponseEntity<>(userDB, HttpStatus.OK);
+			return response;
 		}
-		return null;
+		response = new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		return response;
 	}
 }
